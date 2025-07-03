@@ -43,6 +43,10 @@ Ein kleines ITSM-Demo-Projekt für den **Incident Management Workflow** nach ITI
 - Manuelle Tests per Bash-Skript (`manual_tests.sh`)
 - Spezifische Workflows & Abfragen im Frontend mit JavaScript
 
+## 📸 Screenshot
+
+👉 [Projekt-Screenshot (PDF)](docs/screenshot.pdf)
+
 ---
 
 ## 📦 Deployment
