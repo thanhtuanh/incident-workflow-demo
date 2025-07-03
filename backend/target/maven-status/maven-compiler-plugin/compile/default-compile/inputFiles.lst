@@ -1,0 +1,7 @@
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/IncidentWorkflowDemoApplication.java
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/controller/IncidentController.java
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/model/Incident.java
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/model/Priority.java
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/model/Status.java
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/repository/IncidentRepository.java
+/Users/macx116/Documents/projects/tutorial/github/incident-workflow-demo/backend/src/main/java/com/example/incident/service/IncidentService.java

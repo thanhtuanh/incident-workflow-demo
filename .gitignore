@@ -1,0 +1,61 @@
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# macOS trash
+.Trashes
+
+# Spotlight
+.Spotlight-V100
+
+# macOS indexing
+.AppleDesktop
+Network Trash Folder
+
+# ============================================
+# Maven
+/target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Eclipse / IntelliJ IDEA
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# OS generated files
+ehthumbs.db
+Thumbs.db
+
+# ============================================
+# Node modules (falls du Frontend Node benutzt)
+/node_modules/
+
+# ============================================
+# Docker
+**/.docker
+
+# ============================================
+# Environment files (wenn nötig)
+.env
+
+# ============================================
+# JetBrains Rider
+.idea/
+
+# ============================================
+# Other
+*.swp
+*.swo

@@ -1,0 +1,620 @@
+### ./frontend/index.html
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <title>Incident Workflow Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-4">
+    <h1>Incident Workflow Demo</h1>
+
+    <form id="incidentForm" class="mb-4">
+        <div class="mb-3">
+            <label for="title" class="form-label">Titel</label>
+            <input type="text" id="title" class="form-control" placeholder="z.B. VPN-Ausfall">
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Beschreibung</label>
+            <textarea id="description" class="form-control"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="priority" class="form-label">Priorität</label>
+            <select id="priority" class="form-select">
+                <option value="LOW">LOW</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="HIGH">HIGH</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Incident erstellen</button>
+    </form>
+
+    <h2>Tickets</h2>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Titel</th>
+                <th>Priorität</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="incidentList"></tbody>
+    </table>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+
+### ./frontend/script.js
+const form = document.getElementById('incidentForm');
+const list = document.getElementById('incidentList');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  let title = document.getElementById('title').value.trim();
+  let description = document.getElementById('description').value.trim();
+  let priority = document.getElementById('priority').value;
+
+  // 🟢 Regel: VPN → HIGH
+  if (title.toLowerCase().includes('vpn')) {
+    priority = 'HIGH';
+    alert("Hinweis: VPN-Probleme werden automatisch als HIGH eingestuft!");
+  }
+
+  const data = { title, description, priority };
+
+  await fetch('http://localhost:8080/api/incidents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+
+  form.reset();
+  loadIncidents();
+});
+
+async function loadIncidents() {
+  const res = await fetch('http://localhost:8080/api/incidents');
+  const incidents = await res.json();
+  list.innerHTML = '';
+
+  incidents.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i.id}</td>
+      <td>${i.title}</td>
+      <td><span class="badge ${badgeClass(i.priority)}">${i.priority}</span></td>
+      <td>${i.status}</td>
+      <td>
+        ${statusButtons(i.id)}
+      </td>
+    `;
+    list.appendChild(tr);
+  });
+}
+
+function badgeClass(priority) {
+  switch (priority) {
+    case 'HIGH': return 'bg-danger';
+    case 'MEDIUM': return 'bg-warning text-dark';
+    default: return 'bg-secondary';
+  }
+}
+
+// 🟢 NEU: Status-Änderungs-Buttons
+function statusButtons(id) {
+  return `
+    <button onclick="updateStatus(${id}, 'IN_PROGRESS')" class="btn btn-sm btn-warning">In Progress</button>
+    <button onclick="updateStatus(${id}, 'RESOLVED')" class="btn btn-sm btn-success">Resolved</button>
+    <button onclick="updateStatus(${id}, 'CLOSED')" class="btn btn-sm btn-dark">Closed</button>
+  `;
+}
+
+async function updateStatus(id, status) {
+  await fetch(`http://localhost:8080/api/incidents/${id}/status?status=${status}`, {
+    method: 'PUT'
+  });
+  loadIncidents();
+}
+
+loadIncidents();
+
+
+### ./backend/manual_tests.sh
+#!/bin/bash
+
+echo "🚦 Incident Workflow Demo – Manuelle Tests"
+
+API_URL="http://localhost:8080/api/incidents"
+
+echo "----------------------------------------"
+echo "1) Create VPN Incident"
+curl -s -X POST $API_URL \
+  -H "Content-Type: application/json" \
+  -d '{"title":"VPN-Ausfall Abteilung XY","description":"Kein VPN seit 09:00 Uhr","priority":"LOW"}'
+echo ""
+
+echo "----------------------------------------"
+echo "2) Create Drucker Incident"
+curl -s -X POST $API_URL \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Drucker druckt nicht","description":"Papierstau","priority":"LOW"}'
+echo ""
+
+echo "----------------------------------------"
+echo "3) Get all Incidents"
+curl -s $API_URL | jq .
+echo ""
+
+echo "----------------------------------------"
+echo "4) Set ID 1 to IN_PROGRESS"
+curl -s -X PUT "$API_URL/1/status?status=IN_PROGRESS"
+echo ""
+
+echo "5) Set ID 1 to RESOLVED"
+curl -s -X PUT "$API_URL/1/status?status=RESOLVED"
+echo ""
+
+echo "6) Set ID 1 to CLOSED"
+curl -s -X PUT "$API_URL/1/status?status=CLOSED"
+echo ""
+
+echo "✅ Manuelle Tests abgeschlossen!"
+
+
+### ./backend/pom.xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>incident-workflow-demo</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>Incident Workflow Demo</name>
+  <description>Mini ITSM Incident Workflow Demo mit Spring Boot und Lombok</description>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.3</version>
+    <relativePath/>
+  </parent>
+
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+
+  <dependencies>
+    <!-- Spring Boot Web -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Spring Data JPA -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+
+    <!-- PostgreSQL Treiber -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+
+    <!-- Lombok -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.32</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Tests -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- Spring Boot Plugin -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
+
+
+### ./backend/src/test/java/com/example/incident/controller/IncidentServiceTest.java
+package com.example.incident.controller;
+
+import com.example.incident.model.Incident;
+import com.example.incident.model.Priority;
+import com.example.incident.model.Status;
+import com.example.incident.repository.IncidentRepository;
+import com.example.incident.service.IncidentService;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+public class IncidentServiceTest {
+
+    @Mock
+    private IncidentRepository incidentRepository;
+
+    @InjectMocks
+    private IncidentService incidentService;
+
+    @Test
+    void testCreateIncident() {
+        // Arrange
+        Incident input = new Incident();
+        input.setTitle("VPN Problem");
+        input.setDescription("No VPN since morning");
+        input.setPriority(Priority.HIGH);
+
+        Incident saved = new Incident();
+        saved.setId(1L);
+        saved.setTitle(input.getTitle());
+        saved.setDescription(input.getDescription());
+        saved.setPriority(input.getPriority());
+        saved.setStatus(Status.OPEN);
+
+        when(incidentRepository.save(any(Incident.class))).thenReturn(saved);
+
+        // Act
+        Incident result = incidentService.createIncident(input);
+
+        // Assert
+        assertThat(result.getStatus()).isEqualTo(Status.OPEN);
+        assertThat(result.getTitle()).isEqualTo("VPN Problem");
+        verify(incidentRepository, times(1)).save(any(Incident.class));
+    }
+}
+
+
+### ./backend/src/test/java/com/example/incident/controller/IncidentControllerTest.java
+package com.example.incident.controller;
+
+import com.example.incident.service.IncidentService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(controllers = IncidentController.class)
+public class IncidentControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private IncidentService incidentService;
+
+    @Test
+    void testCreateIncident() throws Exception {
+        String json = """
+                {
+                    "title": "VPN Issue",
+                    "description": "Kein VPN seit 09:00 Uhr",
+                    "priority": "HIGH"
+                }
+                """;
+
+        mockMvc.perform(post("/api/incidents")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isOk());
+    }
+}
+
+
+### ./backend/src/main/resources/application.properties
+spring.datasource.url=jdbc:postgresql://db:5432/incidentsdb
+spring.datasource.username=admin
+spring.datasource.password=admin
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+server.port=8080
+
+
+### ./backend/src/main/java/com/example/incident/repository/IncidentRepository.java
+package com.example.incident.repository;
+
+import com.example.incident.model.Incident;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface IncidentRepository extends JpaRepository<Incident, Long> {
+}
+
+
+### ./backend/src/main/java/com/example/incident/controller/IncidentController.java
+package com.example.incident.controller;
+
+import com.example.incident.model.Incident;
+import com.example.incident.model.Status;
+import com.example.incident.service.IncidentService;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/incidents")
+@CrossOrigin(origins = "*")
+public class IncidentController {
+
+    @Autowired
+    private IncidentService incidentService;
+
+    @PostMapping
+    public Incident createIncident(@RequestBody Incident incident) {
+        return incidentService.createIncident(incident);
+    }
+
+    @PutMapping("/{id}/status")
+    public Incident updateStatus(@PathVariable Long id, @RequestParam Status status) {
+        return incidentService.updateStatus(id, status);
+    }
+
+    @GetMapping
+    public List<Incident> getAll() {
+        return incidentService.getAllIncidents();
+    }
+}
+
+
+### ./backend/src/main/java/com/example/incident/model/Status.java
+package com.example.incident.model;
+
+public enum Status {
+    OPEN,
+    IN_PROGRESS,
+    RESOLVED,
+    CLOSED
+}
+
+
+### ./backend/src/main/java/com/example/incident/model/Incident.java
+package com.example.incident.model;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+public class Incident {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String title;
+
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    private Priority priority;
+
+    @Enumerated(EnumType.STRING)
+    private Status status = Status.OPEN; // Standard-Startpunkt
+
+}
+
+
+### ./backend/src/main/java/com/example/incident/model/Priority.java
+package com.example.incident.model;
+
+public enum Priority {
+    LOW,
+    MEDIUM,
+    HIGH
+}
+
+
+### ./backend/src/main/java/com/example/incident/service/IncidentService.java
+package com.example.incident.service;
+
+import com.example.incident.model.Incident;
+import com.example.incident.model.Status;
+import com.example.incident.repository.IncidentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+@Service
+public class IncidentService {
+
+    @Autowired
+    private IncidentRepository incidentRepository;
+
+    public Incident createIncident(Incident incident) {
+        incident.setStatus(Status.OPEN);
+        return incidentRepository.save(incident);
+    }
+
+    public Incident updateStatus(Long id, Status status) {
+        Incident incident = incidentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Incident not found"));
+        incident.setStatus(status);
+        return incidentRepository.save(incident);
+    }
+
+    public List<Incident> getAllIncidents() {
+        return incidentRepository.findAll();
+    }
+}
+
+
+### ./backend/src/main/java/com/example/incident/IncidentWorkflowDemoApplication.java
+package com.example.incident;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class IncidentWorkflowDemoApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(IncidentWorkflowDemoApplication.class, args);
+    }
+}
+
+
+### ./README.md
+# 🚦 Incident Workflow Demo
+
+Ein kleines ITSM-Demo-Projekt für den **Incident Management Workflow** nach ITIL – mit einem realistischen Beispiel aus dem IT-Support.
+
+---
+
+## 🎯 Szenario: VPN-Ausfall
+
+## 🎯 Beispiel-Workflow: VPN-Ausfall
+
+1. Incident wird erstellt → Status: **OPEN**  
+2. 1st-Level-Support prüft VPN-Logs und Netzwerk-Monitoring → Status: **IN_PROGRESS**  
+3. VPN-Dienst wird neugestartet, Zugang erfolgreich getestet → Status: **RESOLVED**  
+4. User bestätigt die Lösung → Ticket wird endgültig abgeschlossen → Status: **CLOSED**
+
+
+**Workflow:**
+1. Ticket wird erstellt → Status: OPEN
+2. IT prüft VPN-Logs → Status: IN_PROGRESS
+3. Service wird neugestartet → Test erfolgreich → Status: RESOLVED
+4. Nach Rückmeldung → Ticket geschlossen → Status: CLOSED
+
+---
+
+## ⚙️ Tech-Stack
+
+- Spring Boot (Java)
+- PostgreSQL
+- Docker Compose
+- Frontend: Bootstrap + Vanilla JS
+- NGINX für statisches Hosting
+- GitHub Actions für CI/CD
+
+---
+
+## ✅ Funktionen
+
+- Neues Ticket anlegen mit Titel, Beschreibung, Priorität
+- Automatischer Status „OPEN“
+- API-Integration für Create & Read
+- Tabelle mit farbigen Badges für Priorität
+- Automatisierte Tests (`IncidentControllerTest` mit MockMvc)
+- Manuelle Tests per Bash-Skript (`manual_tests.sh`)
+- Spezifische Workflows & Abfragen im Frontend mit JavaScript
+
+---
+
+## 📦 Deployment
+
+```bash
+mvn clean package
+docker-compose up
+
+
+### ./.github/workflows/ci.yml
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: ☕ Setup JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: 📦 Build with Maven
+      run: mvn -B clean package --file backend/pom.xml
+
+    - name: ✅ Run Tests
+      run: mvn test --file backend/pom.xml
+
+    - name: 📁 Archive Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: incident-demo-jar
+        path: backend/target/*.jar
+
+
+### ./docker-compose.yml
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: incidentsdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/incidentsdb
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin
+
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    ports:
+      - "80:80"
+
+
